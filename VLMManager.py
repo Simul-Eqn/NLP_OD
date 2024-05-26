@@ -886,7 +886,7 @@ def main(image_path, category_name_string, params):
   else: 
     
     t = list(rescaled_detection_boxes[indices_fg[0]]) # this is the highest score one 
-    return [ t[0] , t[1] , t[2]-t[0] , t[3]-t[1] ] 
+    return [ t[1] , t[0] , t[3]-t[1] , t[2]-t[0] ] 
 
 
 
@@ -943,8 +943,10 @@ def getImgBytes(path):
     return bytearray(f.read()) 
 
 
-print( VLMManager().identify( getImgBytes('./examples/five_women_and_umbrellas.jpg') , 
-            ';'.join(['street sign'])
+if __name__ == "__main__": 
+  print( VLMManager().identify( getImgBytes('./examples/five_women_and_umbrellas.jpg') , 
+            #';'.join(['street sign'])
+            'flipflop' 
                              ) ) 
 
 
