@@ -12,6 +12,12 @@
 
 # this code was modified from https://colab.research.google.com/github/tensorflow/tpu/blob/master/models/official/detection/projects/vild/ViLD_demo.ipynb 
 
+
+
+model_checkpoint_path = "model_checkpoint/model_10.pt"
+
+
+
 from easydict import EasyDict
 
 import numpy as np
@@ -20,7 +26,7 @@ import clip
 
 from tqdm import tqdm
 
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 from matplotlib import patches
 
 import collections
@@ -58,13 +64,13 @@ SMALL_SIZE = 16#10
 MEDIUM_SIZE = 18#12
 BIGGER_SIZE = 20#14
 
-plt.rc('font', size=MEDIUM_SIZE)          # controls default text sizes
-plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
-plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
-plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
-plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+#plt.rc('font', size=MEDIUM_SIZE)          # controls default text sizes
+#plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
+#plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+#plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+#plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+#plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
+#plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 
 # Parameters for drawing figure.
@@ -173,8 +179,25 @@ multiple_templates = [
     'a painting of a {}.',
 ]
 
-clip.available_models()
-model, preprocess = clip.load("ViT-B/32")
+
+#clip.available_models()
+#model, preprocess = clip.load("ViT-B/32")
+
+
+
+
+model, preprocess = clip.load("ViT-B/32",jit=False) 
+checkpoint = torch.load(model_checkpoint_path) #
+
+# Use these 3 lines if you use default model setting(not training setting) of the clip. For example, if you set context_length to 100 since your string is very long during training, then assign 100 to checkpoint['model_state_dict']["context_length"] 
+checkpoint['model_state_dict']["input_resolution"] = model.input_resolution #default is 224
+checkpoint['model_state_dict']["context_length"] = model.context_length # default is 77
+checkpoint['model_state_dict']["vocab_size"] = model.vocab_size 
+
+model.load_state_dict(checkpoint['model_state_dict'])
+
+
+
 
 
 def build_text_embedding(categories):
@@ -343,7 +366,7 @@ def draw_bounding_box_on_image(image,
   # If the total height of the display strings added to the top of the bounding
   # box exceeds the top of the image, stack the strings below the bounding box
   # instead of above.
-  display_str_heights = [font.getsize(ds)[1] for ds in display_str_list]
+  display_str_heights = [font.getbbox(ds)[3] for ds in display_str_list]
   # Each display_str has a top and bottom margin of 0.05x.
   total_display_str_height = (1 + 2 * 0.05) * sum(display_str_heights)
 
@@ -681,6 +704,7 @@ def plot_mask(color, alpha, original_image, mask):
 
 
 def display_image(path_or_array, size=(10, 10)):
+  return 
   if isinstance(path_or_array, str):
     image = np.asarray(Image.open(open(path_or_array, 'rb')).convert("RGB"))
   else:
@@ -781,6 +805,20 @@ def main(image_path, category_name_string, params):
   indices = np.argsort(-np.max(scores_all, axis=1))  # Results are ranked by scores
   indices_fg = np.array([i for i in indices if np.argmax(scores_all[i]) != 0], dtype=int)
 
+
+
+
+  if len(indices_fg) == 0: 
+    return [0,0,0,0] 
+  else: 
+    
+    t = list(rescaled_detection_boxes[indices_fg[0]]) # this is the highest score one 
+    return [ round(t[1]) , round(t[0]) , round(t[3]-t[1]) , round(t[2]-t[0]) ] 
+
+
+
+
+
   #################################################################
   # Plot detected boxes on the input image.
   ymin, xmin, ymax, xmax = np.split(rescaled_detection_boxes, 4, axis=-1)
@@ -792,7 +830,7 @@ def main(image_path, category_name_string, params):
   else: 
     return rescaled_detection_boxes[indices_fg[0]] '''
   
-  print(rescaled_detection_boxes[indices_fg]) 
+  #print(rescaled_detection_boxes[indices_fg]) 
 
   if len(indices_fg) == 0:
     display_image(np.array(image), size=overall_fig_size)
@@ -812,12 +850,14 @@ def main(image_path, category_name_string, params):
         skip_scores=False,
         skip_labels=True)
 
-    plt.figure(figsize=overall_fig_size)
-    plt.imshow(image_with_detections)
-    plt.axis('off')
-    plt.title('Detected objects and RPN scores')
-    plt.show()
+    #plt.figure(figsize=overall_fig_size)
+    #plt.imshow(image_with_detections)
+    #plt.axis('off')
+    #plt.title('Detected objects and RPN scores')
+    #plt.show()
 
+
+  
 
   #################################################################
   # Plot
@@ -881,12 +921,7 @@ def main(image_path, category_name_string, params):
 
   print('Detection counts:', cnt)
 
-  if len(indices_fg) == 0: 
-    return [0,0,0,0] 
-  else: 
-    
-    t = list(rescaled_detection_boxes[indices_fg[0]]) # this is the highest score one 
-    return [ t[1] , t[0] , t[3]-t[1] , t[2]-t[0] ] 
+  
 
 
 

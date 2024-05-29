@@ -3,5 +3,7 @@ easydict
 numpy
 tqdm
 matplotlib
-PIL
+pillow
 scipy
+tensorflow 
+opencv-python 
