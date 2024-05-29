@@ -9,8 +9,8 @@ from PIL import Image
 
 import pandas as pd 
 
-EPOCH = 5 
-BATCH_SIZE = 8 
+EPOCH = 11 
+BATCH_SIZE = 16 
 
 
 # Latest Update : 18 July 2022, 09:55 GMT+7
@@ -66,22 +66,22 @@ class image_title_dataset(Dataset):
                    left = mid 
 
             if (in_idx > self.poss[right]): 
-               self.next_idx = right 
+               self.next_i = right 
                idx = right 
             else: 
-               self.next_idx = left 
+               self.next_i = left 
                idx = left 
 
 
         image = preprocess(Image.open("train_data/images/"+self.vlmdata.loc[idx].image)) # Image from PIL module
-        captions = [ self.vlmdata.loc[idx].annotations[i]['caption'] for i in range(len(self.vlmdata.loc[idx].annotations)) ]
-        return image, captions 
+        caption = self.vlmdata.loc[idx].annotations[in_idx-self.poss[self.next_i]]['caption'] 
+        return image, clip.tokenize(caption)[0] 
 
 # use your own data
 dataset = image_title_dataset()
 train_dataloader = DataLoader(dataset,batch_size = BATCH_SIZE) #Define your own dataloader
 
-1/0 
+
 
 #https://github.com/openai/CLIP/issues/57
 def convert_models_to_fp32(model): 
@@ -99,37 +99,44 @@ loss_img = nn.CrossEntropyLoss()
 loss_txt = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-5,betas=(0.9,0.98),eps=1e-6,weight_decay=0.2) #Params used from paper, the lr is smaller, more safe for fine tuning to new dataset
 
+print("DEVICE:", device)
+
 # add your own code to track the training progress.
 for epoch in range(EPOCH):
-  for batch in train_dataloader :
-      optimizer.zero_grad()
+    print("EPOCH", epoch)
+    for batch in train_dataloader :
+        #print("batch")
+        optimizer.zero_grad()
 
-      images, texts = batch 
-    
-      images = images.to(device)
-      texts = texts.to(device)
-    
-      logits_per_image, logits_per_text = model(images, texts)
+        images, texts = batch 
 
-      ground_truth = torch.arange(len(images),dtype=torch.long,device=device)
+        #print("IMAGES:", images) 
+        #print("TEXTS:", texts)
+        
+        images = images.to(device)
+        texts = texts.to(device)
+        
+        logits_per_image, logits_per_text = model(images, texts)
 
-      total_loss = (loss_img(logits_per_image,ground_truth) + loss_txt(logits_per_text,ground_truth))/2
-      total_loss.backward()
-      if device == "cpu":
-         optimizer.step()
-      else : 
-        convert_models_to_fp32(model)
-        optimizer.step()
-        clip.model.convert_weights(model)
+        ground_truth = torch.arange(len(images),dtype=torch.long,device=device)
+
+        total_loss = (loss_img(logits_per_image,ground_truth) + loss_txt(logits_per_text,ground_truth))/2
+        total_loss.backward()
+        if device == "cpu":
+            optimizer.step()
+        else : 
+            convert_models_to_fp32(model)
+            optimizer.step()
+            clip.model.convert_weights(model)
 
 
 
-# save model 
+    # save model 
 
-torch.save({
+    torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': total_loss,
-        }, f"model_checkpoint/model_10.pt") #just change to your preferred folder/filename
+        }, "model_checkpoint/model_"+str(epoch)+".pt") #just change to your preferred folder/filename
 
